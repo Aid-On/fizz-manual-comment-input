@@ -17,28 +17,36 @@ type ParsedInput = {
 }
 
 // 空行・空白のみの行は none (コメントにしない)。
+// インデックス演算ではなく split ベース (マルチバイト安全)。
 fn parse_input_line(line: String) -> Option[ParsedInput] = {
-  let trimmed = string.trim(line)
-  guard trimmed != "" else none
-  match string.index_of(trimmed, "\t") {
-    none    => some(ParsedInput { user: none, text: trimmed }),
-    some(i) => {
-      let user = string.trim(string.take(trimmed, i))
-      let text = string.trim(string.drop(trimmed, i + 1))
-      guard text != "" else none
-      some(ParsedInput {
-        user: if user == "" then none else some(user),
-        text: text,
-      })
-    },
+  guard string.trim(line) != "" else none
+  let parts = string.split(line, "\t")
+  if list.len(parts) <= 1 then
+    some(ParsedInput { user: none, text: string.trim(line) })
+  else {
+    let user = string.trim(list.first(parts) ?? "")
+    // text 側にタブが含まれていた場合はそのまま復元する。
+    let text = string.trim(string.join(list.drop(parts, 1), "\t"))
+    guard text != "" else none
+    some(ParsedInput {
+      user: if user == "" then none else some(user),
+      text: text,
+    })
   }
 }
 
-fn to_comment(p: ParsedInput, default_user: String, id: String) -> comment.Comment =
+fn to_comment(p: ParsedInput, default_user: String, id: String) -> comment.Comment = {
+  // 注: `p.user ?? default_user` は almide v0.25 の codegen が引数の
+  // 所有権を壊すため、明示 match + 補間で owned 文字列にして回避。
+  let user = match p.user {
+    some(u) => u,
+    none    => "${default_user}",
+  }
   comment.Comment {
     id: id,
-    user: p.user ?? default_user,
+    user: user,
     text: p.text,
     color: none,
     source: comment.Manual,
   }
+}
