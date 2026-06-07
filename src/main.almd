@@ -1,0 +1,36 @@
+// CLI エントリポイント — stdin の行を読み、正規化コメント NDJSON を stdout へ。
+//
+//   fizz-manual-comment-input | fizz-comment-dedupe | ...
+//   (対話的に打つ / `echo "テスト" | fizz-manual-comment-input` のどちらも可)
+//
+// 終了: EOF (io.read_line が "" を返したとき)。
+// 注意: 空行と EOF を区別できないため、空行入力でも終了する。
+// 運用上は「空行 = 終わり」として扱う (誤爆してもパイプを張り直すだけ)。
+
+import self as manual
+import fizz_protocol.comment
+import io
+import env
+
+effect fn main() -> Unit = {
+  let default_user = string.trim(env.get("FIZZ_MANUAL_USER") ?? "")
+  let user = if default_user == "" then "operator" else default_user
+  eprintln("[manual] reading lines from stdin (user=${user}, 'name<TAB>text' to override)")
+  var seq = 0
+  var open = true
+  while open {
+    let line = io.read_line()
+    if line == "" then {
+      open = false
+    } else {
+      match manual.parse_input_line(line) {
+        none    => (),
+        some(p) => {
+          let id = "man-${int.to_string(env.millis())}-${int.to_string(seq)}"
+          seq = seq + 1
+          println(comment.comment_to_json(manual.to_comment(p, user, id)))
+        },
+      }
+    }
+  }
+}

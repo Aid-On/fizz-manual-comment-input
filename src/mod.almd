@@ -1,0 +1,44 @@
+// fizz_manual_comment_input — 運用者の手入力 → 正規化コメント。
+//
+// 責務 (一行): 運用者が打ったテキストを正規化コメントとして注入する。
+//
+// 入力形式 (1 行 1 コメント):
+//   こんにちは                  → user は default_user
+//   ユーザ名<TAB>こんにちは      → user を指定
+//
+// テスト注入・リハーサル・配信中の「サクラコメント」がユースケース。
+// ID 採番 (時刻 + 連番) は main.almd 側 (effect) で行う。
+
+import fizz_protocol.comment
+
+type ParsedInput = {
+  user: Option[String],
+  text: String,
+}
+
+// 空行・空白のみの行は none (コメントにしない)。
+fn parse_input_line(line: String) -> Option[ParsedInput] = {
+  let trimmed = string.trim(line)
+  guard trimmed != "" else none
+  match string.index_of(trimmed, "\t") {
+    none    => some(ParsedInput { user: none, text: trimmed }),
+    some(i) => {
+      let user = string.trim(string.take(trimmed, i))
+      let text = string.trim(string.drop(trimmed, i + 1))
+      guard text != "" else none
+      some(ParsedInput {
+        user: if user == "" then none else some(user),
+        text: text,
+      })
+    },
+  }
+}
+
+fn to_comment(p: ParsedInput, default_user: String, id: String) -> comment.Comment =
+  comment.Comment {
+    id: id,
+    user: p.user ?? default_user,
+    text: p.text,
+    color: none,
+    source: comment.Manual,
+  }

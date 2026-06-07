@@ -1,0 +1,38 @@
+import self as manual
+import fizz_protocol.comment
+
+test "plain line uses the default user" {
+  match manual.parse_input_line("こんにちは") {
+    some(p) => {
+      let c = manual.to_comment(p, "operator", "man-1")
+      assert_eq(c.user, "operator")
+      assert_eq(c.text, "こんにちは")
+      assert_eq(c.id, "man-1")
+      assert_eq(c.source, comment.Manual)
+    },
+    none => assert(false),
+  }
+}
+
+test "tab-separated line overrides the user" {
+  match manual.parse_input_line("常連さん\tまた来たよ") {
+    some(p) => {
+      let c = manual.to_comment(p, "operator", "man-2")
+      assert_eq(c.user, "常連さん")
+      assert_eq(c.text, "また来たよ")
+    },
+    none => assert(false),
+  }
+}
+
+test "blank and whitespace-only lines are dropped" {
+  assert_eq(manual.parse_input_line("   "), none)
+  assert_eq(manual.parse_input_line("name\t   "), none)
+}
+
+test "empty user falls back to default" {
+  match manual.parse_input_line("\tテキストだけ") {
+    some(p) => assert_eq(manual.to_comment(p, "operator", "id").user, "operator"),
+    none => assert(false),
+  }
+}
